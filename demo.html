@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+
+    <meta charset="UTF-8" >
+    <meta name='keywords' content='WebRTC, HTML5, JavaScript' />
+    <meta name='description' content='WebRTC Reference App' />
+    <meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1'>
+
+    <base target='_blank'>
+
+    <title>FX AdapComm VideoConference</title>
+
+    <!-- <link rel='stylesheet' href='css/main.css' /> -->
+
+</head>
+
+<body>
+
+<h1 id='header'> FX AdapComm VideoConference:</h1>
+<div id='container'>
+
+    <div id='videos'>
+        <video id='localVideo' width="640" height="480" autoplay></video>
+        <video id='remoteVideo' width="640" height="480" autoplay></video>
+    </div>
+
+
+    <!--
+    <div id='textareas'>
+        <textarea id="dataChannelSend" disabled placeholder="Press Start, enter some text, then press Send."></textarea>
+        <textarea id="dataChannelReceive" disabled></textarea>
+    </div>
+    -->
+   <p><b> Please input your username:</b></p>
+    <input name='username' type='text' id='username' maxlength="50" />
+    <button id="Join" >Join</button>
+    <button id="Leave" disabled>Leave</button>
+    <button id='StopCall' disabled>Hang Up</button>
+    <br/>    <br/>
+
+    <div id='client_div' style="visibility:hidden">
+    <p id='onlineclientstext' > Other Online Clients </p>
+    <table id='client_table' border='2'>
+    <tr>
+    <th>Client ID</th>
+    <th>User Name</th>
+    <th>IP Address</th>
+    <th>Calling Status</th>
+    <th>Action</th>
+    </tr>
+     </table>
+        </div>
+
+
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script type='text/javascript'>
+var client_socket=io.connect();
+var global_client_id=-1;
+var global_peer_id=-1;
+var isInitiator=false;
+var isStarted=false;
+</script>
+<script src="js/utility.js"></script>
+<script src="js/adapter.js"></script>
+<script src="js/webrtc.js"></script>
+<script >
+
+
+
+
+
+var isJoined=false;
+var isConnected=false;
+
+var num_online_clients=0;
+var client_div=document.getElementById('client_div');
+var online_client_text=document.getElementById('onlineclientstext');
+var online_client_text_str=online_client_text.innerHTML;
+var client_table=document.getElementById('client_table');
+var join_button=document.getElementById('Join');
+var stopcall_button=document.getElementById('StopCall');
+if(stopcall_button.addEventListener)
+{
+    stopcall_button.addEventListener('click',onStopCall);
+}
+
+if(join_button.addEventListener)
+{
+    join_button.addEventListener('click',onButtonJoin);
+}
+
+var leave_button=document.getElementById('Leave');
+if(leave_button.addEventListener)
+{
+    leave_button.addEventListener('click',onButtonLeave);
+}
+
+function onStopCall()
+{
+    hangup();
+
+    stopcall_button.disabled=true;
+}
+function onButtonJoin()
+{
+       var username=document.getElementById('username').value;
+       if(username.length==0 || username.trim().length==0)
+       {
+            window.alert("Please input a valid user name!");
+            return;
+       }
+
+       username=username.trim();
+
+
+       if(!isConnected)
+       {
+           window.alert('Connection to Server is lost, please try again later!');
+           return;
+       }
+
+       if(!isJoined)
+       {
+       client_socket.emit('join',username);
+
+           console.log('join message sent!');
+       }
+
+
+
+}
+
+
+function onButtonLeave()
+{
+      if(!isConnected)
+      return;
+
+      if(!isJoined)
+      return;
+
+       client_socket.emit('leave');
+}
+
+
+//when the page is loaded
+client_socket.on('connect',function(){
+    console.log("connected to server!");
+
+    //set value
+    isConnected=true;
+
+});
+
+//when the page is unloaded
+client_socket.on('disconnect',function(){
+    console.log("disconnected from server!");
+
+    isConnected=false;
+    isJoined=false;
+});
+
+//when join button clicks
+client_socket.on('joined',function(client_id){
+
+    isJoined=true;
+
+    global_client_id=client_id;
+
+    join_button.disabled=true;
+    leave_button.disabled=false;
+
+    client_div.style.visibility='visible';
+
+    console.log('successfully joined');
+
+
+    getUserMedia(constraints, handleUserMedia, handleUserMediaError);
+
+});
+
+// when leave button clicks
+client_socket.on('left',function(){
+
+    isJoined=false;
+
+    join_button.disabled=false;
+    leave_button.disabled=true;
+
+    StopLocalMedia();
+
+   /* for(var row_index=1;row_index<num_online_clients+1;row_index++)
+    {
+
+    client_table.deleteRow(row_index);
+
+    }
+     */
+
+    while(client_table.rows.length>1)
+    client_table.deleteRow(-1);
+
+
+
+    num_online_clients=0;
+
+    client_div.style.visibility='hidden';
+
+    console.log('successfully left');
+
+});
+
+
+
+//received message from server
+client_socket.on('message',onMessage);
+
+client_socket.on('client list',onReceiveClientList);
+
+client_socket.on('client join',onClientJoin);
+
+client_socket.on('client leave',onClientLeave);
+
+client_socket.on('client status',onClientStatus);
+
+function onClientJoin(client)
+{
+    InsertIntoTable(client);
+
+    num_online_clients++;
+
+    online_client_text.innerHTML=online_client_text_str+" : "+num_online_clients+" clients";
+
+}
+
+function onClientStatus(client_id,status)
+{
+    var row=null;
+    var row_index=-1;
+    for(var i=1;i<num_online_clients+1;i++)
+    {
+        row=client_table.rows[i];
+
+        // console.log(row.cells[0].innerHTML);
+
+        if(row.cells[0].innerHTML==client_id)
+        {
+            row_index=i;
+            break;
+        }
+
+    }
+
+
+    if(row_index==-1)
+    {
+        console.log("fatal error! Client ",client_id+" cannot be found in the table!");
+        return;
+    }
+
+
+    row.cells[3].innerHTML=status;
+
+    var button=row.cells[4].getElementsByTagName('input')[0];
+
+    if(status=='idle')
+    button.disabled=false;
+    else if(status=='busy')
+    button.disabled=true;
+
+}
+
+function onClientLeave(client_id)
+{
+    RemoveFromTable(client_id);
+
+    num_online_clients--;
+
+    online_client_text.innerHTML=online_client_text_str+" : "+num_online_clients+" clients";
+
+}
+
+function onReceiveClientList(client_list)
+{
+
+
+         if(client_list==null || client_list.length==0)
+         {
+         online_client_text.innerHTML=online_client_text_str+" : 0 clients";
+
+
+         return;
+         }
+
+
+
+       var client,i;
+       for(i=0;i< client_list.length;i++)
+       {
+           client=client_list[i];
+           console.log(client);
+       InsertIntoTable(client);
+       }
+
+      num_online_clients=client_list.length;
+
+       online_client_text.innerHTML=online_client_text_str+" : "+num_online_clients+" clients";
+
+
+
+
+}
+
+
+function onMessage(message)
+{
+   // console.log("received a message of type ",message.type);
+
+    if(message.type=='broadcast')
+    {
+        console.log("received message: "+message.msg);
+        return;
+    }
+
+
+    var media_message=message.msg;
+
+    if (media_message.type === 'offer') {
+
+        console.log("Received offer");
+
+        if (!isInitiator && !isStarted)
+        {
+
+            global_peer_id=message.from;
+            MaybeStart();
+        }
+
+        pc.setRemoteDescription(new RTCSessionDescription(media_message));
+
+        doAnswer();
+    } else if (media_message.type === 'answer' && isStarted) {
+
+        console.log("received answer");
+
+        pc.setRemoteDescription(new RTCSessionDescription(media_message));
+    } else if (media_message.type === 'candidate' && isStarted) {
+        console.log("received candidate");
+        var candidate = new RTCIceCandidate({sdpMLineIndex:media_message.label,
+            candidate:media_message.candidate});
+        pc.addIceCandidate(candidate);
+    } else if (media_message === 'bye' && isStarted) {
+
+        console.log("received bye");
+        handleRemoteHangup();
+    }
+
+
+}
+
+function InsertIntoTable(client)
+{
+   var row=client_table.insertRow(-1);
+   var client_id=row.insertCell(0);
+   var user_name=row.insertCell(1);
+   var ip_address=row.insertCell(2);
+   var status=row.insertCell(3);
+   var button=row.insertCell(4);
+
+
+
+
+
+
+   client_id.innerHTML=client.id;
+   user_name.innerHTML=client.name;
+   ip_address.innerHTML=client.address;
+   status.innerHTML=client.status;
+
+
+   var bt=document.createElement('input');
+   bt.type='button';
+   bt.value='CALL';
+
+   bt.id='client_button@'+client.id;
+
+
+   if(client.status!='idle')
+   bt.disabled=true;
+
+   bt.addEventListener('click',function(){
+       CallClient(bt.id);
+   });
+
+   button.appendChild(bt);
+
+
+}
+
+
+function CallClient(button_client_id)
+{
+        var strs=button_client_id.split('@');
+        var peer_id=strs[1];
+
+        console.log("going to connect to peer with client id "+peer_id);
+
+        isInitiator=true;
+
+        //SendPeerMessage('going to connect!',peer_id);
+
+        global_peer_id=peer_id;
+
+
+        MaybeStart();
+
+}
+
+function RemoveFromTable(client_id)
+{
+
+      // console.log("to remove client id "+client_id);
+       var row;
+       var row_index=-1;
+       for(var i=1;i<num_online_clients+1;i++)
+       {
+           row=client_table.rows[i];
+
+          // console.log(row.cells[0].innerHTML);
+
+           if(row.cells[0].innerHTML==client_id)
+           {
+               row_index=i;
+               break;
+           }
+
+       }
+
+
+       if(row_index==-1)
+       {
+           console.log("fatal error! Client ",client_id+" cannot be found in the table!");
+           return;
+       }
+
+
+        client_table.deleteRow(row_index);
+}
+
+
+window.onbeforeunload=function()
+{
+
+
+
+       if(isJoined)
+       client_socket.emit('leave');
+
+       join_button.disabled=false;
+       leave_button.disabled=true;
+       stopcall_button.disabled=true;
+
+       var username=document.getElementById('username');
+       username.reset();
+};
+
+document.onload=function()
+{
+    join_button.disabled=false;
+    leave_button.disabled=true;
+    stopcall_button.disabled=true;
+
+    var username=document.getElementById('username');
+    username.reset();
+}
+
+
+
+</script>
+
+</body>
+</html>

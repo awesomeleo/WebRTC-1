@@ -2,6 +2,7 @@
 var RTCPeerConnection = null;
 var getUserMedia = null;
 var attachMediaStream = null;
+var attachLocalMediaStream=null;
 var reattachMediaStream = null;
 var detachMediaStream=null;
 var webrtcDetectedBrowser = null;
@@ -59,7 +60,28 @@ if (navigator.mozGetUserMedia) {
     // Attach a media stream to an element.
     attachMediaStream = function(element, stream) {
         console.log("Attaching media stream");
+
+
+
+
         element.mozSrcObject = stream;
+
+        element.play();
+    };
+
+
+    // Attach a media stream to an element.
+    attachLocalMediaStream = function(element, stream) {
+        console.log("Attaching media stream");
+
+
+
+
+
+        element.mozSrcObject = stream;
+
+      //  element.muted="muted";
+
         element.play();
     };
 
@@ -135,6 +157,37 @@ if (navigator.mozGetUserMedia) {
         } else {
             console.log('Error attaching stream to element.');
         }
+
+
+    };
+
+
+    attachLocalMediaStream = function(element, stream) {
+
+        var audioTracks=stream.getAudioTracks();
+        for(var i=0;i<audioTracks.length;i++)
+        {
+            audioTracks[i].enabled="false";
+        }
+
+
+
+
+
+
+        if (typeof element.srcObject !== 'undefined') {
+            element.srcObject = stream;
+        } else if (typeof element.mozSrcObject !== 'undefined') {
+            element.mozSrcObject = stream;
+        } else if (typeof element.src !== 'undefined') {
+            element.src = URL.createObjectURL(stream);
+        } else {
+            console.log('Error attaching stream to element.');
+
+        }
+
+      //  element.muted="muted";
+
     };
 
 

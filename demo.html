@@ -22,8 +22,8 @@
 <div id='container'>
 
     <div id='videos'>
-        <video id='localVideo' width="640" height="480" autoplay></video>
-        <video id='remoteVideo' width="640" height="480" autoplay></video>
+        <video id='localVideo' width="320" height="180" autoplay="true"  muted="muted"></video>
+        <video id='remoteVideo' width="320" height="180" autoplay="true" ></video>
     </div>
 
 
@@ -56,13 +56,18 @@
 
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
+
 <script type='text/javascript'>
-var client_socket=io.connect();
+var client_socket;
 var global_client_id=-1;
 var global_peer_id=-1;
 var isInitiator=false;
 var isStarted=false;
+var isJoined=false;
+var isConnected=false;
+
+var audio_send_codec = '';
+var audio_receive_codec = 'opus/48000';
 </script>
 <script src="js/utility.js"></script>
 <script src="js/adapter.js"></script>
@@ -73,8 +78,7 @@ var isStarted=false;
 
 
 
-var isJoined=false;
-var isConnected=false;
+
 
 var num_online_clients=0;
 var client_div=document.getElementById('client_div');

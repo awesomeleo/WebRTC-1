@@ -113,7 +113,7 @@ var remoteVideo = document.querySelector('#remoteVideo');
 
 function handleUserMedia(stream) {
     localStream = stream;
-    attachMediaStream(localVideo, stream);
+    attachLocalMediaStream(localVideo, stream);
     console.log('Adding local stream.');
     sendMessage('got user media');
     if (isInitiator) {

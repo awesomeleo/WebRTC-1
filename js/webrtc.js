@@ -1,6 +1,22 @@
 'use strict';
+var audio_constraints = {
+    mandatory: {
+        'googEchoCancellation': false,
+        'googNoiseSuppression': false
+    },
+    optional: []
+};
 
-var constraints = {video:true,audio:true};
+var video_constraints = {
+    mandatory: {
+        maxWidth:320,
+        maxHeight:180
+    },
+    optional: []
+};
+var constraints = {audio:audio_constraints,video:video_constraints};
+
+
 var localVideo = document.querySelector('#localVideo');
 var remoteVideo = document.querySelector('#remoteVideo');
 
@@ -25,8 +41,41 @@ var sdpConstraints = {'mandatory': {
 
 
 function handleUserMedia(stream) {
+
+
+    //add audio support
+    //create an audio context
+    var audioContext = window.AudioContext || window.webkitAudioContext;
+
+
+    /*
+    if(audioContext)
+    {
+
+    var context = new audioContext();
+    var microphone=context.createMediaStreamSource(stream);
+
+    var volume=context.createGain();
+        volume.gain.value=0.5;
+
+    var destination = context.createMediaStreamDestination();
+    var outputStream=destination.stream;
+
+    microphone.connect(volume);
+    volume.connect(destination);
+
+    stream.removeTrack(stream.getAudioTracks()[0]);
+
+    stream.addTrack(outputStream.getAudioTracks()[0]);
+
+
+
+    }
+    */
+
+
     localStream = stream;
-    attachMediaStream(localVideo, stream);
+    attachLocalMediaStream(localVideo, stream);
     console.log('Adding local stream.');
     //sendMessage('got user media');
 
@@ -152,9 +201,74 @@ function handleRemoteStreamRemoved(event) {
 
 function setLocalAndSendMessage(sessionDescription) {
     // Set Opus as the preferred codec in SDP if Opus is present.
-    sessionDescription.sdp = preferOpus(sessionDescription.sdp);
+    sessionDescription.sdp = maybePreferAudioReceiveCodec(sessionDescription.sdp);
     pc.setLocalDescription(sessionDescription);
     SendPeerMessage(sessionDescription,global_peer_id);
+}
+
+
+
+
+function maybePreferAudioSendCodec(sdp) {
+    if (audio_send_codec == '') {
+        console.log('No preference on audio send codec.');
+        return sdp;
+    }
+    console.log('Prefer audio send codec: ' + audio_send_codec);
+    return preferAudioCodec(sdp, audio_send_codec);
+}
+
+function maybePreferAudioReceiveCodec(sdp) {
+    if (audio_receive_codec == '') {
+        console.log('No preference on audio receive codec.');
+        return sdp;
+    }
+    console.log('Prefer audio receive codec: ' + audio_receive_codec);
+    return preferAudioCodec(sdp, audio_receive_codec);
+}
+
+
+
+
+// Set |codec| as the default audio codec if it's present.
+// The format of |codec| is 'NAME/RATE', e.g. 'opus/48000'.
+function preferAudioCodec(sdp, codec) {
+    var fields = codec.split('/');
+    if (fields.length != 2) {
+        console.log('Invalid codec setting: ' + codec);
+        return sdp;
+    }
+    var name = fields[0];
+    var rate = fields[1];
+    var sdpLines = sdp.split('\r\n');
+
+    // Search for m line.
+    for (var i = 0; i < sdpLines.length; i++) {
+        if (sdpLines[i].search('m=audio') !== -1) {
+            var mLineIndex = i;
+            break;
+        }
+    }
+    if (mLineIndex === null)
+        return sdp;
+
+    // If the codec is available, set it as the default in m line.
+    for (var i = 0; i < sdpLines.length; i++) {
+        if (sdpLines[i].search(name + '/' + rate) !== -1) {
+            var regexp = new RegExp(':(\\d+) ' + name + '\\/' + rate, 'i');
+            var payload = extractSdp(sdpLines[i], regexp);
+            if (payload)
+                sdpLines[mLineIndex] = setDefaultCodec(sdpLines[mLineIndex],
+                    payload);
+            break;
+        }
+    }
+
+    // Remove CN in m line and sdp.
+    sdpLines = removeCN(sdpLines, mLineIndex);
+
+    sdp = sdpLines.join('\r\n');
+    return sdp;
 }
 
 

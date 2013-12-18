@@ -1,24 +1,26 @@
 <!DOCTYPE html>
-<html>
-<head>
-
-    <meta charset="UTF-8" >
-    <meta name='keywords' content='WebRTC, HTML5, JavaScript' />
-    <meta name='description' content='WebRTC Reference App' />
-    <meta name='viewport' content='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1'>
-
-    <base target='_blank'>
-
-    <title>FX AdapComm VideoConference (New)</title>
-    <link rel="stylesheet" href="style.css">
+<html><head>
 
 
-</head>
-<body>
-<script type='text/javascript' src="js/jquery-1.10.2.min.js"></script>
 
-<h1 id='header'> FX AdapComm VideoConference:</h1>
-<div class='loginClass' id='container'>
+
+
+
+
+
+    <meta charset="UTF-8">
+    <meta name="keywords" content="WebRTC, HTML5, JavaScript">
+    <meta name="description" content="WebRTC Reference App">
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1">
+
+    <base target="_blank"><title>FX AdapComm VideoConference (New)</title>
+
+    
+    <link rel="stylesheet" href="style.css"></head><body>
+<script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
+
+<h1 id="header"> FX AdapComm VideoConference:</h1>
+<div class="loginClass" id="container">
 
     <!--
 
@@ -36,31 +38,44 @@
         <textarea id="dataChannelReceive" disabled></textarea>
     </div>
     -->
-    <p id="status_text"><b> Input username and password to login:</b></p>
-    <input name='username' type='text' id='username' maxlength="50" />
-    <button id="Login" >Login</button>
-    <button id="Logout" disabled>Logout</button>
-    <button id='StopCall' disabled>Hang Up</button>
-    <br/>    <br/>
+    
 
-    <div id='client_div' style="visibility:hidden">
-        <p id='onlineclientstext' > Other Online Clients </p>
-        <table id='client_table' border='2'>
-            <tr>
+<br>
+
+<p id="status_text"><br>
+Input username and password to login:</p>
+
+
+ <div class="inputClass">
+<p id="prompt_text">username:&nbsp; <input class="textinputClass" name="username" id="username" maxlength="60" type="text">
+</p>
+ </div>
+    <div class="inputClass">
+<p id="password_text"> password:&nbsp; <input class="textinputClass" name="password" id="password" maxlength="60" type="password"></p>
+    </div>
+    <br>
+<br>
+<br>
+<button class="buttonClass" type="button" id="Login">Login</button>
+
+    <div id="client_div" style="visibility: hidden;">
+        <p id="onlineclientstext"> Other Online Clients </p>
+        <table id="client_table" border="2">
+            <tbody><tr>
                 <th>Client ID</th>
                 <th>User Name</th>
                 <th>IP Address</th>
                 <th>Calling Status</th>
                 <th>Action</th>
             </tr>
-        </table>
+        </tbody></table>
     </div>
 
 
 </div>
 
 
-<script type='text/javascript'>
+<script type="text/javascript">
     var client=null;
     var global_client_id=-1;
     var global_peer_id=-1;
@@ -74,28 +89,25 @@
     var audio_receive_codec = 'opus/48000';
 </script>
 
-<script type='text/javascript' src="js/webrtcClient.js"></script>
+<script type="text/javascript" src="js/webrtcClient.js"></script>
 
 <script>
     var client_div=document.getElementById('client_div');
     var online_client_text=document.getElementById('onlineclientstext');
     var online_client_text_str=online_client_text.innerHTML;
     var client_table=document.getElementById('client_table');
-    var loginButton=document.getElementById('Login');
     var logoutButton=document.getElementById("Logout");
     var stopCallButton=document.getElementById('StopCall');
-    var statusText=document.getElementById("status_text");
 
+    $(document).ready(function(){
 
+        $("#Login").click(onButtonLogin);
+
+    });
     //add listener
     if(stopCallButton.addEventListener)
     {
         stopCallButton.addEventListener('click',onStopCall);
-    }
-
-    if(loginButton.addEventListener)
-    {
-        loginButton.addEventListener('click',onButtonLogin);
     }
 
 
@@ -107,8 +119,10 @@
     function onButtonLogin()
     {
 
+        console.log("onbutton login is called");
 
-        var username=document.getElementById('username').value;
+        var username=$("#username").val();
+        var password=$("#password").val();
         if(username.length==0 || username.trim().length==0)
         {
             window.alert("Please input a valid user name!");
@@ -116,10 +130,24 @@
             return;
         }
 
-        username=username.trim();
 
-        loginButton.disabled=true;
-        statusText.innerHTML="Connecting to server, please wait......";
+        if(password.length==0 || password.trim().length==0)
+        {
+            window.alert("Please input a valid password!");
+
+            return;
+        }
+
+        username=username.trim();
+        password=password.trim();
+
+
+        $("#Login").prop('disabled',true);
+        $("#username").prop('readonly','readonly');
+        $("#password").prop('readonly','readonly');
+
+
+        $("#status_text").text("Connecting to server, please wait......");
 
         if(client==null)
         {
@@ -132,7 +160,7 @@
 
         }
 
-        console.log("client state is "+client.state);
+        console.log("client state is "+client.connectionstate);
 
 
         if(client.connectionstate==ClientState.OFFLINE)
@@ -197,15 +225,20 @@
 
     function loginWindowCallback()
     {
-        statusText.innerHTML="Successfully logged in";
+
         logoutButton.disabled=false;
     }
 
     function disconnectWindowCallback()
     {
-        statusText.innerHTML="Please input your username:";
 
-        loginButton.disabled=false;
+
+        console.log("disconnect window callback is called");
+
+        $("#Login").removeAttr('disabled');
+        $("#username").removeAttr('readonly');
+        $("#password").removeAttr('readonly');
+        $("#status_text").text('Input username and password to login:');
 
 
 
@@ -219,5 +252,4 @@
 
 
 
-</body>
-</html>
+</body></html>

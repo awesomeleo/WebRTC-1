@@ -38,12 +38,17 @@ function Peer()
        this.udpEnabled="false";
        this.peers=null;
        this.shouldLogin=true;
+
+
        this.heartbeatID=null;
+
+       this.LoginTimerID=null;
+       this.LogoutTimerID=null;
 
        this.currentPeerName=null;
        this.currentPeerID=null;
 
-       this.heartbeatInterval=10;
+       this.heartbeatInterval=5;
 
 
        this.loginCallback=null;
@@ -447,12 +452,44 @@ WEBRTCClient.prototype.startHeatBeat=function()
        this.heartbeatInterval*1000);
 }
 
+WEBRTCClient.prototype.OnLogoutTimeout=function()
+{
+      console.log("Logout request timeout");
+
+
+      if(this.disconnectCallback!=null)
+        this.disconnectCallback.call(this.callbackEntity);
+
+}
+
+WEBRTCClient.prototype.startLogoutTimer=function()
+{
+     this.stopLogoutTimer();
+
+     var that=this;
+     this.LogoutTimerID=setInterval(function(){
+         that.OnLogoutTimeout.call(that)
+     },5000);
+}
+
+
+WEBRTCClient.prototype.stopLogoutTimer=function()
+{
+     if(this.LogoutTimerID!=null)
+     {
+         clearInterval(this.LogoutTimerID);
+         this.LogoutTimerID=null;
+     }
+
+}
+
 
 WEBRTCClient.prototype.stopHeartBeat=function()
 {
     if(this.heartbeatID!=null)
     {
         clearInterval(this.heartbeatID);
+        this.heartbeatID=null;
     }
 }
 
@@ -487,6 +524,9 @@ WEBRTCClient.prototype.Logout=function()
 
     if(this.connectionstate==ClientState.OFFLINE)
     return;
+
+
+    this.startLogoutTimer();
 
 
     if(this.connectionstate==ClientState.CONNECTED)
@@ -595,6 +635,8 @@ WEBRTCClient.prototype.connect=function()
            console.log("connection to server is closed");
 
            that.stopHeartBeat();
+
+           that.stopLogoutTimer();
            that.isConnected=false;
            that.connectionstate=ClientState.OFFLINE;
 

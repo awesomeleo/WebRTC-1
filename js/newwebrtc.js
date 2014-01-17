@@ -1,3 +1,6 @@
+/**
+ * Created by haiyang on 12/19/13.
+ */
 'use strict';
 var audio_constraints = {
     mandatory: {
@@ -17,16 +20,16 @@ var video_constraints_ld = {
 
 var video_constraints_sd = {
     mandatory: {
-        maxWidth:640,
-        maxHeight:480
+        maxWidth:480,
+        maxHeight:320
     },
     optional: []
 };
 
 var video_constraints_hd = {
     mandatory: {
-        maxWidth:1280,
-        maxHeight:720
+        maxWidth:640,
+        maxHeight:480
     },
     optional: []
 };
@@ -35,13 +38,17 @@ var currentVideoConstraint=video_constraints_ld;
 
 var constraints = {audio:audio_constraints,video:currentVideoConstraint};
 
-
 var localVideo = document.querySelector('#localVideo');
 var remoteVideo = document.querySelector('#remoteVideo');
 
-var localStream;
-var remoteStream;
-var pc;
+var localStream=null;
+var remoteStream=null;
+var pc=null;
+
+var isInitiator=false;
+var isStarted=false;
+
+var webrtcClient=null;
 
 
 var pc_config =
@@ -68,29 +75,29 @@ function handleUserMedia(stream) {
 
 
     /*
-    if(audioContext)
-    {
+     if(audioContext)
+     {
 
-    var context = new audioContext();
-    var microphone=context.createMediaStreamSource(stream);
+     var context = new audioContext();
+     var microphone=context.createMediaStreamSource(stream);
 
-    var volume=context.createGain();
-        volume.gain.value=0.5;
+     var volume=context.createGain();
+     volume.gain.value=0.5;
 
-    var destination = context.createMediaStreamDestination();
-    var outputStream=destination.stream;
+     var destination = context.createMediaStreamDestination();
+     var outputStream=destination.stream;
 
-    microphone.connect(volume);
-    volume.connect(destination);
+     microphone.connect(volume);
+     volume.connect(destination);
 
-    stream.removeTrack(stream.getAudioTracks()[0]);
+     stream.removeTrack(stream.getAudioTracks()[0]);
 
-    stream.addTrack(outputStream.getAudioTracks()[0]);
+     stream.addTrack(outputStream.getAudioTracks()[0]);
 
 
 
-    }
-    */
+     }
+     */
 
 
     localStream = stream;
@@ -104,9 +111,9 @@ function handleUserMedia(stream) {
 
 function StopLocalMedia()
 {
-     detachMediaStream(localVideo,localStream);
+    detachMediaStream(localVideo,localStream);
 
-     console.log("detached local media stream");
+    console.log("detached local media stream");
 
 }
 
@@ -139,53 +146,38 @@ function createPeerConnection() {
 
 
     /*
-    if (isInitiator) {
-        try {
-            // Reliable Data Channels not yet supported in Chrome
-            sendChannel = pc.createDataChannel("sendDataChannel",
-                {reliable: false});
-            trace('Created send data channel');
-        } catch (e) {
-            alert('Failed to create data channel. ' +
-                'You need Chrome M25 or later with RtpDataChannel enabled');
-            trace('createDataChannel() failed with exception: ' + e.message);
-        }
-        sendChannel.onopen = handleSendChannelStateChange;
-        sendChannel.onclose = handleSendChannelStateChange;
-    } else {
-        pc.ondatachannel = gotReceiveChannel;
-    }
-    */
+     if (isInitiator) {
+     try {
+     // Reliable Data Channels not yet supported in Chrome
+     sendChannel = pc.createDataChannel("sendDataChannel",
+     {reliable: false});
+     trace('Created send data channel');
+     } catch (e) {
+     alert('Failed to create data channel. ' +
+     'You need Chrome M25 or later with RtpDataChannel enabled');
+     trace('createDataChannel() failed with exception: ' + e.message);
+     }
+     sendChannel.onopen = handleSendChannelStateChange;
+     sendChannel.onclose = handleSendChannelStateChange;
+     } else {
+     pc.ondatachannel = gotReceiveChannel;
+     }
+     */
 }
 
-function SendBroadcastMessage(message)
+
+
+function SendPeerRTCMessage(message)
 {
-       var msg={};
-       msg.type='broadcast'
-       msg.from=global_client_id;
-       msg.msg=message;
 
-       client_socket.emit('message',msg);
+    webrtcClient.sendWebRTCMessage(message);
 
-}
 
-function SendPeerMessage(message,peer_id)
-{
-       var msg={};
-       msg.type='peer';
-       msg.from=global_client_id;
-       msg.to=peer_id;
-       msg.msg=message;
-       client_socket.emit('message',msg);
-
-       console.log("send client "+peer_id+ " a message of type "+message.type);
+    console.log("send  a message of type "+message.type);
 }
 
 
-function SendStatusMessage(message)
-{
-    client_socket.emit('status',message);
-}
+
 
 
 function handleIceCandidate(event) {
@@ -198,7 +190,7 @@ function handleIceCandidate(event) {
             id: event.candidate.sdpMid,
             candidate: event.candidate.candidate};
 
-     SendPeerMessage(message,global_peer_id);
+        SendPeerRTCMessage(message);
     } else {
         console.log('End of candidates.');
     }
@@ -211,6 +203,8 @@ function handleRemoteStreamAdded(event) {
     attachMediaStream(remoteVideo, event.stream);
     remoteStream = event.stream;
 //  waitForRemoteVideo();
+
+    webrtcClient.callEstablishedCallback();
 }
 
 function handleRemoteStreamRemoved(event) {
@@ -222,7 +216,7 @@ function setLocalAndSendMessage(sessionDescription) {
     // Set Opus as the preferred codec in SDP if Opus is present.
     sessionDescription.sdp = maybePreferAudioReceiveCodec(sessionDescription.sdp);
     pc.setLocalDescription(sessionDescription);
-    SendPeerMessage(sessionDescription,global_peer_id);
+    SendPeerRTCMessage(sessionDescription);
 }
 
 
@@ -291,7 +285,7 @@ function preferAudioCodec(sdp, codec) {
 }
 
 
-function MaybeStart()
+function WebRTCMaybeStart()
 {
     if (!isStarted && localStream)
     {
@@ -299,49 +293,50 @@ function MaybeStart()
         pc.addStream(localStream);
         isStarted = true;
 
-        var stopcall_button=document.getElementById('StopCall');
-        stopcall_button.disabled=false;
 
-        SendStatusMessage('busy');
 
         if (isInitiator) {
-            doCall();
+            WebRTCdoCall();
         }
     }
 }
 
-function doCall()
+function WebRTCdoCall()
 {
 
-        var constraints = {'optional': [], 'mandatory': {'MozDontOfferDataChannel': true}};
-        // temporary measure to remove Moz* constraints in Chrome
-        if (webrtcDetectedBrowser === 'chrome') {
-            for (var prop in constraints.mandatory) {
-                if (prop.indexOf('Moz') !== -1) {
-                    delete constraints.mandatory[prop];
-                }
+    var constraints = {'optional': [], 'mandatory': {'MozDontOfferDataChannel': true}};
+    // temporary measure to remove Moz* constraints in Chrome
+    if (webrtcDetectedBrowser === 'chrome') {
+        for (var prop in constraints.mandatory) {
+            if (prop.indexOf('Moz') !== -1) {
+                delete constraints.mandatory[prop];
             }
         }
-        constraints = mergeConstraints(constraints, sdpConstraints);
-        console.log('Sending offer to peer, with constraints: \n' +
-            '  \'' + JSON.stringify(constraints) + '\'.');
-        pc.createOffer(setLocalAndSendMessage, null, constraints);
+    }
+    constraints = mergeConstraints(constraints, sdpConstraints);
+    console.log('Sending offer to peer, with constraints: \n' +
+        '  \'' + JSON.stringify(constraints) + '\'.');
+    pc.createOffer(setLocalAndSendMessage, null, constraints);
 
 }
 
 
-function doAnswer() {
+function WebRTCdoAnswer() {
     console.log('Sending answer to peer.');
     pc.createAnswer(setLocalAndSendMessage, null, sdpConstraints);
 }
 
 
+/*
 function hangup() {
     console.log('Hanging up.');
     stop();
     SendPeerMessage('bye',global_peer_id);
 }
+*/
 
+
+/*
 function handleRemoteHangup() {
     console.log('Session terminated.');
     stop();
@@ -355,16 +350,20 @@ function handleRemoteHangup() {
 
 
 }
+*/
 
-function stop() {
+function stopWebRTCMedia() {
     isStarted = false;
+    isInitiator=false;
     // isAudioMuted = false;
     // isVideoMuted = false;
     pc.close();
-    pc = null;
+
 
     StopRemoteMedia();
 
-    SendStatusMessage('idle');
+    pc=null;
+
+
 }
 

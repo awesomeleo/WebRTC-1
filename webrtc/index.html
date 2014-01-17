@@ -22,7 +22,7 @@
 <h1 id="header"> FX AdapComm VideoConference:</h1>
 
 <p class="statusTextClass" id="status_text"><br>
-    Input username and password to login:</p>
+    Input username to login:</p>
 <div class="loginClass" id="container">
 
     <!--
@@ -50,9 +50,11 @@
         <p id="prompt_text">username:&nbsp; <input class="textinputClass" name="username" id="username" maxlength="40" type="text">
         </p>
     </div>
-    <div class="inputClass">
+    <!--
+    /<div class="inputClass">
         <p id="password_text"> password:&nbsp; <input class="textinputClass" name="password" id="password" maxlength="40" type="password"></p>
     </div>
+    -->
     <br>
     <button class="buttonClass" type="button" id="Login">Login</button>
 
@@ -230,7 +232,7 @@ function onButtonLogin()
     console.log("onbutton login is called");
 
     var username=$("#username").val();
-    var password=$("#password").val();
+    //var password=$("#password").val();
     if(username.length==0 || username.trim().length==0)
     {
         window.alert("Please input a valid user name!");
@@ -238,16 +240,19 @@ function onButtonLogin()
         return;
     }
 
-
+    /*
     if(password.length==0 || password.trim().length==0)
     {
         window.alert("Please input a valid password!");
 
         return;
     }
+    */
 
     username=username.trim();
-    password=password.trim();
+
+
+    //password=password.trim();
 
 
     $("#Login").prop('disabled',true);
@@ -419,6 +424,7 @@ function disconnectWindowCallback()
     console.log("disconnect window callback is called");
 
     $("#Logout").prop('disabled',false);
+    $("#Login").prop("disabled",false);
     //hide elements
     $(".logoutClass").css('display','none');
     $("#peers_div").css('display','none');
@@ -442,7 +448,7 @@ function disconnectWindowCallback()
 
 
 
-    $("#status_text").text('Input username and password to login:');
+    $("#status_text").text('Input username to login:');
 
 
 
